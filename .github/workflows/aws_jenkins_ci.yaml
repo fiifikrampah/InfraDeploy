@@ -1,0 +1,67 @@
+---
+name: Infra_Deploy_CI
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+  pull_request:
+
+jobs:
+  code_linter_validator:
+    runs-on: ubuntu-22.04
+    name: packer + ansible + terraform validation
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Validate Packer Templates
+        id: packer_validate
+        uses: hashicorp/packer-github-actions@master
+        with:
+          command: validate
+          arguments: -syntax-only
+          target: packer/
+
+      - name: Run Ansible lint
+        id: ansible_lint
+        uses: ansible-community/ansible-lint-action@main
+        with:
+          path: "ansible/playbook.yml"
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v1
+
+      - name: Terraform Format
+        id: terraform_fmt
+        run: terraform fmt -check terraform/
+
+      - name: Terraform Init
+        id: terraform_init
+        run: terraform -chdir=terraform init
+
+      - name: Terraform Validate
+        id: terraform_validate
+        run: terraform -chdir=terraform validate -no-color
+
+      - name: Update Pull Request
+        uses: actions/github-script@v6
+        if: github.event_name == 'pull_request'
+        with:
+          script: |
+            const output = `#### Packer Validation 📦\`${{ steps.packer_validate.outcome }}\`
+            #### Ansible Lint Results 📝\`${{ steps.ansible_lint.outcome }}\`
+            #### Terraform Format and Style 🖌\`${{ steps.terraform_fmt.outcome }}\`
+            #### Terraform Initialization ⚙️\`${{ steps.terraform_init.outcome }}\`
+            #### Terraform Validation 🤖\`${{ steps.terraform_validate.outcome }}\`
+
+            *Pushed by: @${{ github.actor }}, Action: \`${{ github.event_name }}\`*`;
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: output
+            })
