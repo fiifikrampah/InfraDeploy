@@ -13,14 +13,14 @@
 
     - name: Update and upgrade apt packages
       apt:
-        upgrade: yes
-        update_cache: yes
+        upgrade: true
+        update_cache: true
 
     - name: Install Apache
       apt:
         name: apache2
-        update_cache: yes
-        state: latest
+        update_cache: true
+        state: present
 
     - name: Create document root
       file:
@@ -40,7 +40,7 @@
         state: started
 
     - name: Disable default Apache site
-      shell: /usr/sbin/a2dissite 000-default.conf
+      command: /usr/sbin/a2dissite 000-default.conf
       when: disable_default
       notify: Reload Apache
 
